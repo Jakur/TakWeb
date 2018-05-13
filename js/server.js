@@ -29,23 +29,21 @@ var server = {
         }
         else if (window.location.protocol === "https:" && window.location.host.indexOf("playtak") === -1){
             url = window.location.host;
-        }
+        } 
+		proto = 'ws://'
+		url = '127.0.0.1:8080'
         this.connection = new WebSocket(proto+url, "binary");
         board.server = this;
         this.connection.onerror = function (e) {
             output("Connection error: " + e);
         };
         this.connection.onmessage = function (e) {
-            var blob = e.data;
-            var reader = new FileReader();
-            reader.onload = function (event) {
-                var res = reader.result.split("\n");
-                var i;
-                for (i = 0; i < res.length - 1; i++) {
-                    server.msg(res[i]);
-                }
-            };
-            reader.readAsText(blob);
+            var res = e.data.split("\n");
+            for (var i = 0; i < res.length; i++) {
+				console.log(res[i]);
+                server.msg(res[i]);
+            }
+
         };
         this.connection.onopen = function (e) {
         };
@@ -152,6 +150,7 @@ var server = {
     },
     keepalive: function() {
         if(server.connection && server.connection.readyState === 1)//open connection
+			console.log("Sending ping to server...");
             server.send("PING");
     },
     msg: function (e) {
@@ -437,8 +436,10 @@ var server = {
           }
         }
         else if (e.startsWith("Login or Register")) {
-            server.send("Client " + "TakWeb-16.05.26");
-            this.timeoutvar = window.setInterval(this.keepalive, 30000);
+            server.send("Client " + "TakWeb-18.05.07");
+			if (this.timeoutvar == null) {
+				this.timeoutvar = window.setInterval(this.keepalive, 30000);
+			}
 
             if(localStorage.getItem('keeploggedin')==='true' && this.tries<3) {
               var uname = localStorage.getItem('usr');
@@ -495,7 +496,9 @@ var server = {
             this.tries = 0;
             $('#login').modal('hide');
             document.getElementById('login-button').textContent = 'Logout';
-            this.timeoutvar = window.setInterval(this.keepalive, 30000);
+			if (this.timeoutvar == null) {
+				this.timeoutvar = window.setInterval(this.keepalive, 30000);
+			}
             this.myname = e.split("Welcome ")[1].split("!")[0];
             alert("success", "You're logged in "+this.myname+"!");
             document.title = "Tak";
