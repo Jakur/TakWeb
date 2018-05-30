@@ -580,10 +580,8 @@ var board = {
                         this.squarename(hlt.file, hlt.rank));
 
                 var sqname = this.squarename(hlt.file, hlt.rank);
-                var msg = "P " + sqname;
-                if (stone !== 'Piece')
-                    msg += " " + stone.charAt(0);
-                this.sendmove(msg);
+				//(stf, str, endf, endr, nos, piecetype)
+                this.sendmove(hlt.file, hlt.rank, hlt.file, hlt.rank, null, stone.charAt(0));
                 this.notatePmove(sqname, stone.charAt(0));
 
                 var pcs;
@@ -727,10 +725,12 @@ var board = {
             this.unhighlight_sq();
         }
     },
-    sendmove: function (e) {
+	//(stf, str, endf, endr, nos, piecetype)
+    sendmove: function (stf, str, endf, endr, nos, piecetype) {
         if (!this.server || this.scratch)
             return;
-        server.send("Game#" + this.gameno + " " + e);
+		let ptn = this.playtak_to_ptn(stf, str, endf, endr, nos, piecetype);
+        server.send("Game " + this.gameno + " M " + ptn);
     },
     getfromstack: function (cap, iswhite) {
         //  scan through the pieces for the first appropriate one
@@ -1081,28 +1081,7 @@ var board = {
     },
     //all params are nums
     notateMmove: function (stf, str, endf, endr, nos) {
-        var dir = '';
-        if (stf === endf)
-            dir = (endr < str) ? '-' : '+';
-        else
-            dir = (endf < stf) ? '<' : '>';
-        var tot = 0;
-        var lst = '';
-        for (var i = 0; i < nos.length; i++) {
-            tot += Number(nos[i]);
-            lst = lst + (nos[i] + '').trim();
-        }
-        if (tot === 1) {
-            var s1 = this.get_board_obj(stf, str);
-            if (this.get_stack(s1).length === 0) {
-                tot = '';
-                lst = '';
-            } else if (tot === Number(lst))
-                lst = '';
-        } else if (tot === Number(lst))
-            lst = '';
-        var move = tot + this.squarename(stf, str).toLowerCase()
-                + dir + '' + lst;
+		var move = this.playtak_to_ptn(stf, str, endf, endr, nos, null)
         this.notate(move);
     },
     generateMove: function () {
@@ -1129,7 +1108,9 @@ var board = {
             var nos = "";
             for (i = 0; i < lst.length; i++)
                 nos += lst[i] + " ";
-            this.sendmove("M " + st + " " + end + " " + nos.trim());
+			//(stf, str, endf, endr, nos, piecetype)
+            this.sendmove(this.move.start.file, this.move.start.rank, 
+			this.move.end.file, this.move.end.rank, nos, null);
             this.notateMmove(this.move.start.file, this.move.start.rank,
                     this.move.end.file, this.move.end.rank, nos);
             if (this.scratch) {
@@ -1845,5 +1826,41 @@ var board = {
         } // iterate over rowDescriptors
 
         this.save_board_pos();
-    }
+    },
+	//Starting file, starting row, ending file, ending row, optional numbers
+	playtak_to_ptn: function(stf, str, endf, endr, nos, piecetype) {
+		var dir = '';
+		if (str === endr && stf === endf) {
+			var piece_symbol = '';
+			if (piecetype === 'C') {
+				piece_symbol = 'C';
+			} else if (piecetype === 'W') {
+				piece_symbol = 'S';
+			}
+			return piece_symbol + this.squarename(endf, endr)
+		}
+		if (stf === endf)
+			dir = (endr < str) ? '-' : '+';
+		else
+			dir = (endf < stf) ? '<' : '>';
+		var tot = 0;
+		var lst = '';
+		for (var i = 0; i < nos.length; i++) {
+			tot += Number(nos[i]);
+			lst = lst + (nos[i] + '').trim();
+		}
+		if (tot === 1) {
+			var s1 = this.get_board_obj(stf, str);
+			if (this.get_stack(s1).length === 0) {
+				tot = '';
+				lst = '';
+			} else if (tot === Number(lst))
+				lst = '';
+		} else if (tot === Number(lst))
+			lst = '';
+		var move = tot + this.squarename(stf, str).toLowerCase()
+				+ dir + '' + lst;
+		return move;
+	}
 };
+

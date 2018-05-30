@@ -158,13 +158,7 @@ var server = {
         e = e.trim();
         if (e.startsWith("Game Start")) {
             //Game Start no. size player_white vs player_black yourcolor time
-            var spl = e.split(" ");
-            board.newgame(Number(spl[3]), spl[7]);
-            board.gameno = Number(spl[2]);
-            console.log("gno "+board.gameno);
-            document.getElementById("scratchsize").disabled = true;
-
-            $('#player-me-name').removeClass('player1-name');
+			$('#player-me-name').removeClass('player1-name');
             $('#player-me-name').removeClass('player2-name');
             $('#player-opp-name').removeClass('player1-name');
             $('#player-opp-name').removeClass('player2-name');
@@ -173,11 +167,10 @@ var server = {
             $('#player-me-time').removeClass('player2-time');
             $('#player-opp-time').removeClass('player1-time');
             $('#player-opp-time').removeClass('player2-time');
-
-            $('#player-me').removeClass('selectplayer');
-            $('#player-opp').removeClass('selectplayer');
-
-            if (spl[7] === "white") {//I am white
+			var spl = e.split(" ");
+			var color;
+            if (spl[4] === this.myname) {//I am white
+				color = "white"
                 $('#player-me-name').addClass('player1-name');
                 $('#player-opp-name').addClass('player2-name');
 
@@ -189,6 +182,7 @@ var server = {
 
                 $('#player-me').addClass('selectplayer');
             } else {//I am black
+				color = "black"
                 $('#player-me-name').addClass('player2-name');
                 $('#player-opp-name').addClass('player1-name');
 
@@ -200,26 +194,34 @@ var server = {
 
                 $('#player-opp').addClass('selectplayer');
             }
+            board.newgame(Number(spl[3]), color);
+            board.gameno = Number(spl[2]);
+            console.log("gno "+board.gameno);
+            document.getElementById("scratchsize").disabled = true;
+
+
+            $('#player-me').removeClass('selectplayer');
+            $('#player-opp').removeClass('selectplayer');
 
             $('.player1-name:first').html(spl[4]);
             $('.player2-name:first').html(spl[6]);
             document.title = "Tak: " + spl[4] + " vs " + spl[6];
 
-            var time = Number(spl[8]);
+            var time = Number(spl[7]);
             var m = parseInt(time/60);
             var s = getZero(parseInt(time%60));
             $('.player1-time:first').html(m+':'+s);
             $('.player2-time:first').html(m+':'+s);
 
-            if (spl[7] === "white") {//I am white
-                if(!chathandler.roomExists('priv', spl[6]))
-                    chathandler.createPrivateRoom(spl[6]);
-                chathandler.setRoom('priv', spl[6]);
-            } else {//I am black
-                if(!chathandler.roomExists('priv', spl[4]))
-                    chathandler.createPrivateRoom(spl[4]);
-                chathandler.setRoom('priv', spl[4]);
-            }
+            // if (spl[4] === this.myname) {//I am white
+                // if(!chathandler.roomExists('priv', spl[6]))
+                    // chathandler.createPrivateRoom(spl[6]);
+                // chathandler.setRoom('priv', spl[6]);
+            // } else {//I am black
+                // if(!chathandler.roomExists('priv', spl[4]))
+                    // chathandler.createPrivateRoom(spl[4]);
+                // chathandler.setRoom('priv', spl[4]);
+            // }
 
             var chimesound = document.getElementById("chime-sound");
             chimesound.play();
@@ -298,24 +300,32 @@ var server = {
                 console.log('Game '+no+' removed twice.')
             }
         }
-        else if (e.startsWith("Game#")) {
+		//New format: Game [Number] [M | Command] (Ptn)
+        else if (e.startsWith("Game ")) {
           var spl = e.split(" ");
-          var gameno = Number(e.split("Game#")[1].split(" ")[0]);
-          //Game#1 ...
-          if(gameno === board.gameno) {
-            //Game#1 P A4 (C|W)
-            if (spl[1] === "P") {
-                board.serverPmove(spl[2].charAt(0), Number(spl[2].charAt(1)), spl[3]);
-            }
-            //Game#1 M A2 A5 2 1
-            else if (spl[1] === "M") {
-                var nums = [];
-                for (i = 4; i < spl.length; i++)
-                    nums.push(Number(spl[i]));
-                board.serverMmove(spl[2].charAt(0), Number(spl[2].charAt(1)),
-                        spl[3].charAt(0), Number(spl[3].charAt(1)),
-                        nums);
-            }
+          let gameno = Number(spl[1]);
+		  //Follow kakaburra's format, so make array spl
+		  spl = spl.slice(1);
+
+          if(gameno === board.gameno) { //My observed game
+            //Game#1 P A4 (C|W);
+			if (spl[1] === "M") {
+				spl = "G " + ptn_to_playtak(spl[2]); //Weirdness to make index match up
+				spl = spl.split(" ");
+				console.log(spl);
+				if (spl[1] === "P") {
+					board.serverPmove(spl[2].charAt(0), Number(spl[2].charAt(1)), spl[3]);
+				}
+				//Game#1 M A2 A5 2 1
+				else if (spl[1] === "M") {
+					var nums = [];
+					for (i = 4; i < spl.length; i++)
+						nums.push(Number(spl[i]));
+					board.serverMmove(spl[2].charAt(0), Number(spl[2].charAt(1)),
+							spl[3].charAt(0), Number(spl[3].charAt(1)),
+							nums);
+				}
+			}
             //Game#1 Time 170 200
             else if (spl[1] === "Time") {
               var wt = Number(spl[2]);
@@ -766,3 +776,47 @@ var server = {
         this.send("Observe " + no);
     }
 };
+
+function ptn_to_playtak(ptn) {
+  if (ptn.length === 2) {
+    return "P " + ptn.toUpperCase();
+  } else if (ptn.startsWith("C")) {
+	  return "P " + ptn.charAt(1).toUpperCase() + ptn.charAt(2).toUpperCase() + " C";
+  } else if (ptn.startsWith("S")) {
+	  return "P " + ptn.charAt(1).toUpperCase() + ptn.charAt(2).toUpperCase() + " W";
+  } else {
+    var sign_index;
+    var prefix;
+    let parsed = parseInt(ptn.charAt(0));
+    if (isNaN(parsed)) {
+      sign_index = 2;
+      prefix = 1;
+    } else {
+      sign_index = 3;
+      prefix = parsed;
+    }
+    let sign = ptn.charAt(sign_index);
+    let split = ptn.split(sign);
+    let distance = Math.max(split[1].length, 1);
+    var array = Array.prototype.map.call(split[1], function(x) {
+      return x.charAt(0)
+    });
+	if (array.length === 0) {
+		array = [prefix];
+	}
+    var end;
+    if (sign === '+') { //Increase Number
+      end = ptn.charAt(sign_index - 2) + (parseInt(ptn.charAt(sign_index - 1)) + distance)
+    } else if (sign === '-') { //Decrease Number
+      end = ptn.charAt(sign_index - 2) + (parseInt(ptn.charAt(sign_index - 1)) - distance)
+    } else if (sign === '>') { //Increase Letter
+      end = (String.fromCharCode(ptn.charCodeAt(sign_index - 2) + distance)) + ptn.charAt(sign_index - 1)
+    } else if (sign === '<') { //Decrease Letter
+      end = (String.fromCharCode(ptn.charCodeAt(sign_index - 2) - distance)) + ptn.charAt(sign_index - 1)
+    }
+    let tail_string = array.join(" ");
+    let final = "M " + ptn.charAt(sign_index - 2).toUpperCase() + ptn.charAt(sign_index - 1).toUpperCase() 
+      + " " + end.toUpperCase() + " " + tail_string;
+    return final;
+  }
+}
